@@ -38,6 +38,10 @@ variable "cluster_name" {
     type = string
 }
 
+variable "worker_ssh_key" {
+    type = string
+}
+
 resource "aws_eks_cluster" "cluster" {
   name     = var.cluster_name
   role_arn = var.cluster_role_arn
@@ -106,6 +110,10 @@ resource "aws_eks_node_group" "nodegroup" {
         desired_size = 1
         max_size     = 1
         min_size     = 1
+    }
+
+    remote_access {
+        ec2_ssh_key = var.worker_ssh_key
     }
 
     depends_on = [
