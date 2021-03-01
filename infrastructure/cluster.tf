@@ -107,9 +107,9 @@ resource "aws_eks_node_group" "nodegroup" {
     ]
     
     scaling_config {
-        desired_size = 1
-        max_size     = 1
-        min_size     = 1
+        desired_size = 2
+        max_size     = 2
+        min_size     = 2
     }
 
     remote_access {
@@ -121,4 +121,14 @@ resource "aws_eks_node_group" "nodegroup" {
         aws_iam_role_policy_attachment.worker-node-ecr-policy,
         aws_iam_role_policy_attachment.worker-node-cni-policy
   ]
+}
+
+data "tls_certificate" "thumbprint" {
+  url = aws_eks_cluster.cluster.identity[0].oidc[0].issuer
+}
+
+resource "aws_iam_openid_connect_provider" "cluster_oidc" {
+    url = aws_eks_cluster.cluster.identity[0].oidc[0].issuer
+    client_id_list = ["sts.amazonaws.com"]
+    thumbprint_list = [data.tls_certificate.thumbprint.certificates[0].sha1_fingerprint]
 }
