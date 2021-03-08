@@ -1,0 +1,61 @@
+Resources:
+  CodeBuildProject:
+    Type: "AWS::CodeBuild::Project"
+    Properties:
+      Artifacts:
+        Type: NO_ARTIFACTS
+      Description: 'Recommender API codebuild'
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/standard:4.0
+        PrivilegedMode: True
+        Type: LINUX_CONTAINER
+        EnvironmentVariables:
+          - Name: AWS_DEFAULT_REGION
+            Value: !Ref AWS::Region
+          - Name: AWS_ACCOUNT_ID
+            Value: !Ref AWS::AccountId
+          - Name: IMAGE_REPO_NAME
+            Value: !Ref RecommenderAPIImagenRepo
+          - Name: IMAGE_TAG
+            Value: latest
+      Name: Recommender-API-Build
+      ServiceRole: !Ref CodeBuildRole
+      Source:
+        Type: GITHUB
+        Location: https://github.com/JohnZProd/saga-recommender-api.git
+        BuildSpec: ./buildspec_ra3.yml
+      Triggers:
+        Webhook: True
+
+
+  CodeBuildRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement: 
+          - Effect: "Allow"
+            Principal: 
+              Service: 
+                - "codebuild.amazonaws.com"
+            Action: 
+              - "sts:AssumeRole"
+      Description: CodeBuild permissions for recommender API image builder
+      Policies:
+        - PolicyName: Allow-ECR-S3-Access
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "ecr:*"
+                  - "s3:*"
+                  - "logs:*"
+                Resource: "*"
+      RoleName: CodeBuildRoleForSagaRecommenderAPI
+
+  RecommenderAPIImagenRepo:
+    Type: "AWS::ECR::Repository"
+    Properties:
+      RepositoryName: saga-recommender-api
