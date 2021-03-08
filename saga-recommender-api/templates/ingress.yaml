@@ -1,0 +1,19 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: "saga-ra3-ingress"
+  annotations:
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}]'
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/load-balancer-attributes: idle_timeout.timeout_seconds=60
+  labels:
+    app: my-app
+spec:
+  rules:
+    -  http:
+        paths:
+          - path: /*
+            backend:
+              serviceName: "saga-recommender-api-service"
+              servicePort: 80
