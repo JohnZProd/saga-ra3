@@ -61,7 +61,7 @@ resource "aws_eks_cluster" "cluster" {
     service_ipv4_cidr = "172.20.0.0/16"
   }
 
-  version = "1.17"
+  version = "1.18"
 }
 
 resource "aws_iam_role" "worker_role" {
