@@ -293,3 +293,96 @@ resource "helm_release" "aws_load_balancer_controller" {
         value = kubernetes_service_account.service_account.metadata[0].name
     }
 }
+
+/* 
+EXTERNAL DNS
+*/
+
+resource "aws_iam_policy" "external_dns_policy" {
+  name        = "saga-ra3-external-dns-policy"
+  path        = "/"
+  description = "External DNS policy for saga-ra3 EKS cluster"
+
+  policy = jsonencode({
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+        "Effect": "Allow",
+        "Action": [
+            "route53:ChangeResourceRecordSets"
+        ],
+        "Resource": [
+            "arn:aws:route53:::hostedzone/*"
+        ]
+        },
+        {
+        "Effect": "Allow",
+        "Action": [
+            "route53:ListHostedZones",
+            "route53:ListResourceRecordSets"
+        ],
+        "Resource": [
+            "*"
+        ]
+        }
+    ]
+  })
+}
+
+resource "aws_iam_role" "external_dns_role" {
+    name = "saga-ra3-external-dns-role"
+    assume_role_policy = jsonencode({
+        "Version": "2012-10-17",
+        "Statement": [
+            {
+            "Effect": "Allow",
+            "Principal": {
+                "Federated": "arn:aws:iam::${local.account_id}:oidc-provider/${local.cluster_oidc}"
+            },
+            "Action": "sts:AssumeRoleWithWebIdentity",
+            "Condition": {
+                "StringEquals": {
+                "${local.cluster_oidc}:sub": "system:serviceaccount:default:external-dns"
+                }
+            }
+            }
+        ]
+    })
+}
+
+resource "aws_iam_role_policy_attachment" "external_dns_role_policy" {
+  role = aws_iam_role.external_dns_role.name
+  policy_arn = aws_iam_policy.external_dns_policy.arn
+}
+
+resource "kubernetes_service_account" "external_dns_service_account" {
+    metadata {
+        name = "external-dns"
+        namespace = "default"
+        annotations = {
+            "eks.amazonaws.com/role-arn" : aws_iam_role.external_dns_role.arn
+        }
+    }
+}
+
+resource "helm_release" "external_dns" {
+    name = "external-dns"
+    chart = "external-dns"
+    repository = "https://charts.bitnami.com/bitnami"
+    namespace = "default"
+    
+    set {
+        name = "clusterName"
+        value = data.aws_eks_cluster.cluster.id
+    }
+    
+    set {
+        name = "serviceAccount.create"
+        value = "false"
+    }
+
+    set {
+        name = "serviceAccount.name"
+        value = kubernetes_service_account.external_dns_service_account.metadata[0].name
+    }
+}
