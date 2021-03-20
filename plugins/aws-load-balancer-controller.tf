@@ -386,3 +386,75 @@ resource "helm_release" "external_dns" {
         value = kubernetes_service_account.external_dns_service_account.metadata[0].name
     }
 }
+
+/*
+Install prometheus
+*/
+
+resource "kubernetes_namespace" "prometheus_namespace" {
+    metadata {
+        name = "prometheus"
+    }
+}
+
+resource "helm_release" "prometheus" {
+    name = "prometheus"
+    chart = "prometheus"
+    repository = "https://prometheus-community.github.io/helm-charts"
+    namespace = kubernetes_namespace.prometheus_namespace.metadata[0].name
+
+    set {
+        name = "alertmanager.persistentVolume.storageClass"
+        value = "gp2"
+    }
+
+    set {
+        name = "server.persistentVolume.storageClass"
+        value = "gp2"
+    }
+}
+
+/*
+Install grafana
+*/
+
+variable "grafana_password" {
+    type = string
+}
+
+resource "kubernetes_namespace" "grafana_namespace" {
+    metadata {
+        name = "grafana"
+    }
+}
+
+resource "helm_release" "grafana" {
+    name = "grafana"
+    chart = "grafana"
+    repository = "https://grafana.github.io/helm-charts"
+    namespace = kubernetes_namespace.grafana_namespace.metadata[0].name
+
+    set {
+        name = "persistence.storageClassName"
+        value = "gp2"
+    }
+
+    set {
+        name = "persistence.enabled"
+        value = "true"
+    }
+
+    set {
+        name = "adminPassword"
+        value = var.grafana_password
+    }
+
+    set {
+        name = "service.type"
+        value = "LoadBalancer"
+    }
+
+    values = [
+        "${file("grafana.yaml")}"
+    ]
+}
