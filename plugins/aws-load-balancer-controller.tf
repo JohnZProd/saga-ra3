@@ -218,6 +218,8 @@ data "aws_eks_cluster" "cluster" {
 
 data "aws_caller_identity" "current" {}
 
+data "aws_region" "current" {}
+
 locals {
     cluster_oidc = split("://", data.aws_eks_cluster.cluster.identity[0].oidc[0].issuer)[1]
     account_id = data.aws_caller_identity.current.account_id
@@ -457,4 +459,110 @@ resource "helm_release" "grafana" {
     values = [
         "${file("grafana.yaml")}"
     ]
+}
+
+/*
+Install fluentbit
+*/
+
+variable "es_domain_name" {
+    type = string
+}
+
+variable "es_domain_user" {
+    type = string
+}
+
+variable "es_domain_password" {
+    type = string 
+}
+
+data "aws_elasticsearch_domain" "es" {
+    domain_name = var.es_domain_name
+}
+
+resource "aws_iam_policy" "fluent_bit_policy" {
+    name = "saga-ra3-fluent-bit-policy"
+    path        = "/"
+    description = "Policy for the fluentbit log aggregator"
+    policy = jsonencode({
+        "Version": "2012-10-17",
+        "Statement": [
+            {
+                "Action": [
+                    "es:ESHttp*"
+                ],
+                "Resource": "arn:aws:es:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:domain/${var.es_domain_name}",
+                "Effect": "Allow"
+            }
+        ]
+    })
+}
+
+resource "kubernetes_namespace" "logging_namespace" {
+    metadata {
+        name = "logging"
+    }
+}
+
+resource "aws_iam_role" "fluent_bit_role" {
+    name = "saga-ra3-fluent-bit-role"
+    assume_role_policy = jsonencode({
+        "Version": "2012-10-17",
+        "Statement": [
+            {
+            "Effect": "Allow",
+            "Principal": {
+                "Federated": "arn:aws:iam::${local.account_id}:oidc-provider/${local.cluster_oidc}"
+            },
+            "Action": "sts:AssumeRoleWithWebIdentity",
+            "Condition": {
+                "StringEquals": {
+                "${local.cluster_oidc}:sub": "system:serviceaccount:logging:fluent-bit"
+                }
+            }
+            }
+        ]
+    })
+}
+
+resource "aws_iam_role_policy_attachment" "fluent_bit_role_policy" {
+    role = aws_iam_role.fluent_bit_role.name
+    policy_arn = aws_iam_policy.fluent_bit_policy.arn
+
+    provisioner "local-exec" {
+        command = "curl -sS -u \"${var.es_domain_user}:${var.es_domain_password}\" -X PATCH https://${data.aws_elasticsearch_domain.es.endpoint}/_opendistro/_security/api/rolesmapping/all_access?pretty -H 'Content-Type: application/json' -d '[{\"op\": \"add\", \"path\": \"/backend_roles\", \"value\": [\"'${aws_iam_role.fluent_bit_role.name}'\"]}]'"
+    }
+}
+
+resource "kubernetes_service_account" "fleunt_bit_service_account" {
+    metadata {
+        name = "fleunt-bit"
+        namespace = "logging"
+        annotations = {
+            "eks.amazonaws.com/role-arn" : aws_iam_role.fluent_bit_role.arn
+        }
+    }
+}
+
+resource "helm_release" "fluent_bit" {
+    name = "fluent_bit"
+    chart = "aws-for-fluent-bit"
+    repository = "https://aws.github.io/eks-charts"
+    namespace = "logging"
+    
+    set {
+        name = "clusterName"
+        value = data.aws_eks_cluster.cluster.id
+    }
+    
+    set {
+        name = "serviceAccount.create"
+        value = "false"
+    }
+
+    set {
+        name = "serviceAccount.name"
+        value = kubernetes_service_account.fleunt_bit_service_account.metadata[0].name
+    }
 }
