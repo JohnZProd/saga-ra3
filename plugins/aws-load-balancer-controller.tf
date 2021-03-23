@@ -531,13 +531,13 @@ resource "aws_iam_role_policy_attachment" "fluent_bit_role_policy" {
     policy_arn = aws_iam_policy.fluent_bit_policy.arn
 
     provisioner "local-exec" {
-        command = "curl -sS -u \"${var.es_domain_user}:${var.es_domain_password}\" -X PATCH https://${data.aws_elasticsearch_domain.es.endpoint}/_opendistro/_security/api/rolesmapping/all_access?pretty -H 'Content-Type: application/json' -d '[{\"op\": \"add\", \"path\": \"/backend_roles\", \"value\": [\"'${aws_iam_role.fluent_bit_role.name}'\"]}]'"
+        command = "curl -sS -u \"${var.es_domain_user}:${var.es_domain_password}\" -X PATCH https://${data.aws_elasticsearch_domain.es.endpoint}/_opendistro/_security/api/rolesmapping/all_access?pretty -H 'Content-Type: application/json' -d '[{\"op\": \"add\", \"path\": \"/backend_roles\", \"value\": [\"'${aws_iam_role.fluent_bit_role.arn}'\"]}]'"
     }
 }
 
-resource "kubernetes_service_account" "fleunt_bit_service_account" {
+resource "kubernetes_service_account" "fluent_bit_service_account" {
     metadata {
-        name = "fleunt-bit"
+        name = "fluent-bit"
         namespace = "logging"
         annotations = {
             "eks.amazonaws.com/role-arn" : aws_iam_role.fluent_bit_role.arn
@@ -546,15 +546,10 @@ resource "kubernetes_service_account" "fleunt_bit_service_account" {
 }
 
 resource "helm_release" "fluent_bit" {
-    name = "fluent_bit"
+    name = "fluent-bit"
     chart = "aws-for-fluent-bit"
     repository = "https://aws.github.io/eks-charts"
     namespace = "logging"
-    
-    set {
-        name = "clusterName"
-        value = data.aws_eks_cluster.cluster.id
-    }
     
     set {
         name = "serviceAccount.create"
@@ -562,7 +557,45 @@ resource "helm_release" "fluent_bit" {
     }
 
     set {
+        name = "cloudWatch.enabled"
+        value = "false"
+    }
+
+    set {
+        name = "firehose.enabled"
+        value = "false"
+    }
+
+    set {
+        name = "kinesis.enabled"
+        value = "false"
+    }
+
+    set {
         name = "serviceAccount.name"
-        value = kubernetes_service_account.fleunt_bit_service_account.metadata[0].name
+        value = kubernetes_service_account.fluent_bit_service_account.metadata[0].name
+    }
+
+    set {
+        name = "inpout.memBufLimit"
+        value = "50MB"
+    }
+
+    set {
+        name = "elasticsearch.awsRegion"
+        value = data.aws_region.current.name
+    }
+
+    set {
+        name = "elasticsearch.host"
+        value = data.aws_elasticsearch_domain.es.endpoint
+    }
+
+    set {
+        name = "elasticsearch.enabled"
+        value = "true"
     }
 }
+
+#https://artifacthub.io/packages/helm/aws/aws-for-fluent-bit
+#https://www.eksworkshop.com/intermediate/230_logging/deploy/
