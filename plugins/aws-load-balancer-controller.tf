@@ -12,6 +12,48 @@ provider "aws" {
   region  = "ap-southeast-2"
 }
 
+/*
+Initialise secrets for the applications
+*/
+
+variable "db_name" {
+    type = string
+}
+
+variable "db_user" {
+    type = string
+}
+
+variable "topic_file_url" {
+    type = string
+}
+
+variable "db_user_pass" {
+    type = string
+}
+
+variable "db_endpoint" {
+    type = string
+}
+
+resource "kubernetes_secret" "example" {
+  metadata {
+    name = "db-credentials"
+  }
+
+  data = {
+    db-name = var.db_name
+    db-user = var.db_user
+    topic-file-url = var.topic_file_url
+    db-user-pass = var.db_user_pass
+    db-endpoint = var.db_endpoint
+  }
+}
+
+/*
+AWS load balancer controller
+*/
+
 resource "aws_iam_policy" "aws_load_balancer_controller_policy" {
   name        = "saga-ra3-aws-load-balancer-controller-policy"
   path        = "/"
