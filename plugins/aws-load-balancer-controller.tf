@@ -639,5 +639,15 @@ resource "helm_release" "fluent_bit" {
     }
 }
 
-#https://artifacthub.io/packages/helm/aws/aws-for-fluent-bit
-#https://www.eksworkshop.com/intermediate/230_logging/deploy/
+/* Config map stuff */
+
+data "kubernetes_config_map" "aws_auth" {
+    metadata {
+        name = "aws-auth"
+        namespace = "kube-system"
+    }
+}
+
+output "aws_auth_output" {
+    value = data.kubernetes_config_map.aws_auth.data.mapRoles
+}
