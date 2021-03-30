@@ -1,0 +1,78 @@
+Parameters:
+  GithubUsername:
+    Type: String
+    Default: JohnZProd
+  GithubRepo:
+    Type: String
+    Default: helm-saga-recommender-api
+  BuildspecName:
+    Type: String
+    Default: buildspec_config.yaml
+  ClusterName:
+    Type: String
+    Default: saga-ra3-cluster
+  ReleaseName: 
+    Type: String
+    Default: saga-recommender-api
+
+Resources:
+  CodeBuildProject:
+    Type: "AWS::CodeBuild::Project"
+    Properties:
+      Artifacts:
+        Type: NO_ARTIFACTS
+      Description: 'Recommender API helm runner'
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/standard:4.0
+        PrivilegedMode: True
+        Type: LINUX_CONTAINER
+        EnvironmentVariables:
+          - Name: AWS_DEFAULT_REGION
+            Value: !Ref AWS::Region
+          - Name: AWS_ACCOUNT_ID
+            Value: !Ref AWS::AccountId
+          - Name: CLUSTER_NAME
+            Value: !Ref ClusterName
+          - Name: RELEASE_NAME
+            Value: !Ref ReleaseName
+      Name: Recommender-API-Helm-Runner
+      ServiceRole: !Ref CodeBuildRole
+      Source:
+        Type: GITHUB
+        Location: !Sub https://github.com/${GithubUsername}/${GithubRepo}.git
+        BuildSpec: !Ref BuildspecName
+      Triggers:
+        Webhook: True
+
+  CodeBuildRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement: 
+          - Effect: "Allow"
+            Principal: 
+              Service: 
+                - "codebuild.amazonaws.com"
+            Action: 
+              - "sts:AssumeRole"
+      Description: CodeBuild permissions for recommender API helm runner
+      Policies:
+        - PolicyName: Allow-ECR-S3-Access
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "ecr:*"
+                  - "s3:*"
+                  - "logs:*"
+                  - "eks:*"
+                Resource: "*"
+      RoleName: CodeBuildRoleForSagaRecommenderAPIHelmRunner
+
+Outputs:
+  CodebuildRoleArn:
+    Description: ARN of the helm runner role
+    Value: !GetAtt CodeBuildRole.Arn
