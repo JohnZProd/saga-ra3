@@ -5,13 +5,19 @@ Parameters:
   GithubRepo:
     Type: String
     Default: helm-saga-recommender-api
-  BuildspecName:
+  ConfigBuildspecName:
     Type: String
     Default: buildspec_config.yaml
+  CodeBuildspecName:
+    Type: String
+    Default: buildspec_code.yaml
   ClusterName:
     Type: String
     Default: saga-ra3-cluster
   ReleaseName: 
+    Type: String
+    Default: saga-recommender-api
+  ECRRepoName:
     Type: String
     Default: saga-recommender-api
 
@@ -41,7 +47,7 @@ Resources:
       Source:
         Type: GITHUB
         Location: !Sub https://github.com/${GithubUsername}/${GithubRepo}.git
-        BuildSpec: !Ref BuildspecName
+        BuildSpec: !Ref ConfigBuildspecName
       Triggers:
         Webhook: True
 
@@ -71,6 +77,76 @@ Resources:
                   - "eks:*"
                 Resource: "*"
       RoleName: CodeBuildRoleForSagaRecommenderAPIHelmRunner
+
+
+  CloudWatchEventsRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Trigger the helm runner from CloudWatch
+      EventPattern:
+        source:
+          - aws.ecr
+        detail-type:
+          - "ECR Image Action"
+        detail:
+          action-type:
+            - "PUSH"
+          result:
+            - "SUCCESS"
+          repository-name:
+            - !Ref ECRRepoName
+      Name: saga-ra3-recommender-api-helm-runner-code
+      RoleArn: !GetAtt CloudWatchEventsRole.Arn
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt CodeBuildProject.Arn
+          Id: HelmRunner
+          RoleArn: !GetAtt CloudWatchEventsRole.Arn
+          InputTransformer:
+            InputPathsMap:
+              repository-name : "$.detail.repository-name"
+              image-tag : "$.detail.image-tag"
+            InputTemplate: !Sub
+              - |
+                {
+                  "environmentVariablesOverride": [
+                    {
+                      "name": "IMAGE_REPO_NAME",
+                      "value": "<repository-name>"
+                    },
+                    {
+                      "name": "IMAGE_TAG",
+                      "value": "<image-tag>"
+                    }
+                  ],
+                  "buildspecOverride": "${BuildspecOverride}"
+                }
+              - BuildspecOverride: !Ref CodeBuildspecName
+
+  CloudWatchEventsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement: 
+          - Effect: "Allow"
+            Principal: 
+              Service: 
+                - "events.amazonaws.com"
+            Action: 
+              - "sts:AssumeRole"
+      Description: Allow CloudWatch Events to trigger the helm runner
+      Policies:
+        - PolicyName: Allow-Codebuild-Access
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "iam:PassRole"
+                  - "codebuild:StartBuild"
+                Resource: "*"
+      RoleName: CloudWatchHelmRunnerTriggerRole
 
 Outputs:
   CodebuildRoleArn:
