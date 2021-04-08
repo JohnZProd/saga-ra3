@@ -1,0 +1,34 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  labels:
+    run: sitemap-scraper
+  name: sitemap-scraper
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - image: 053273560072.dkr.ecr.ap-southeast-2.amazonaws.com/saga-sitemap-scraper:latest
+          name: sitemap-scraper
+          env:
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: db-credentials
+                  key: db-user
+            - name: DB_USER_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: db-credentials
+                  key: db-user-pass
+            - name: DB_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: db-credentials
+                  key: db-name
+            - name: DB_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: db-credentials
+                  key: db-endpoint
