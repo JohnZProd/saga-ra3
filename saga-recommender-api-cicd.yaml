@@ -23,7 +23,7 @@ Resources:
       ServiceRole: !Ref CodeBuildRole
       Source:
         Type: GITHUB
-        Location: https://github.com/JohnZProd/saga-recommender-api.git
+        Location: https://github.com/buildwithjz/saga-recommender-api.git
         BuildSpec: ./buildspec_ra3.yml
       Triggers:
         Webhook: True
