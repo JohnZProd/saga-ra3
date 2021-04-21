@@ -1,0 +1,94 @@
+Parameters:
+  ClusterName:
+    Type: String
+    Default: saga-ra3-cluster
+    Description: Name of the EKS cluster
+
+  ManifestUrl:
+    Type: String
+    Default: https://raw.githubusercontent.com/buildwithjz/saga-ra3/master/jobs/new-topics.yaml
+    Description: Location of the new topics YAML manifest
+  
+Resources:
+  CodeBuildProject:
+    Type: "AWS::CodeBuild::Project"
+    Properties:
+      Artifacts: #required
+        Type: NO_ARTIFACTS
+      Description: 'New topics task trigger to create an ECS task'
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/standard:4.0
+        Type: LINUX_CONTAINER
+        EnvironmentVariables:
+          - Name: CLUSTER_NAME
+            Value: !Ref ClusterName
+          - Name: MANIFEST_URL
+            Value: !Ref ManifestUrl
+      Name: New-Topics-Execution-Ra3
+      ServiceRole: !Ref IAMRole
+      Source:
+        Type: GITHUB
+        Location: https://github.com/buildwithjz/saga-poc.git
+        BuildSpec: |
+            version: 0.2
+
+            phases:
+              pre_build:
+                commands:
+                  - curl -o kubectl https://amazon-eks.s3.us-west-2.amazonaws.com/1.18.9/2020-11-02/bin/linux/amd64/kubectl
+                  - chmod -x ./kubectl
+                  - mkdir -p $HOME/bin && cp ./kubectl $HOME/bin/kubectl && export PATH=$PATH:$HOME/bin
+                  - aws eks update-kubeconfig --name $CLUSTER_NAME
+                  - echo "Launching Kubernetes job"
+              build:
+                commands:
+                  - export TOPIC_FILE_URL=https://raw.githubusercontent.com/buildwithjz/saga-poc/$CODEBUILD_RESOLVED_SOURCE_VERSION/doc_list.txt
+                  - echo $TOPIC_FILE_URL
+                  - curl -o new-topics-template.yaml $MANIFEST_URL
+                  - cat new-topics-template.yaml
+                  - envsubst < new-topics-template.yaml > new-topics.yaml
+                  - cat new-topics.yaml
+                  - kubectl replace -f new-topics.yaml --force
+              post_build:
+                commands:
+                  - echo "Job launched"
+      Triggers:
+        FilterGroups:
+          - - Type: FILE_PATH
+              Pattern: doc_list.txt
+            - Type: EVENT
+              Pattern: PUSH
+        Webhook: True
+
+  IAMRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement: 
+          - Effect: "Allow"
+            Principal: 
+              Service: 
+                - "codebuild.amazonaws.com"
+            Action: 
+              - "sts:AssumeRole"
+      Description: Allow codebuild to execute the new topics job in the cluster
+      Policies:
+        - PolicyName: Allow-EKS-Access
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "eks:*"
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+                  - "logs:CreateLogGroup"
+                Resource: "*"
+      RoleName: CodebuildNewTopicsKubectlTriggerRole
+
+Outputs:
+  CodebuildRoleArn:
+    Description: ARN of the Codebuild role
+    Value: !GetAtt IAMRole.Arn
