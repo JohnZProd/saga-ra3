@@ -17,7 +17,7 @@ A terraform module that contains the following basic infrastructure resources:
 
 | Resource      | Name           | Description  |
 | ------------- |:-------------:| :----:|
-| aws_eks_cluster     | cluster | |
+| aws_eks_cluster     | cluster | The EKS cluster that all workloads (except for DB) would be running on |
 | aws_iam_role      | worker_role      | |
 | aws_iam_role_policy_attachment | worker-node-eks-policy      | |
 | aws_iam_role_policy_attachment | worker-node-ecr-policy      | |
