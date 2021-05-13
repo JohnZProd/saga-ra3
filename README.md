@@ -11,7 +11,7 @@ The database remains as the standalone mongodb instance running on EC2
 
 ## Components
 
-### /infrastructure
+### infrastructure/
 
 A terraform module that contains the following basic infrastructure resources:
 
@@ -26,7 +26,32 @@ A terraform module that contains the following basic infrastructure resources:
 | aws_iam_openid_connect_provider | cluster_oidc     | The IAM OIDC provider that enables IAM service accounts for workloads (see https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html) |
 | aws_elasticsearch_domain | es_domain     | The managed elasticsearch domain in AWS that allows for log analysis |
 
-### /plugins
+### plugins/
+
+A terraform moule that contains all required plugins and integrations to setup the cluster platform
+
+| Resource      | Name           | Description  |
+| ------------- |:-------------:| :----:|
+| aws_iam_policy     | aws_load_balancer_controller_policy | The IAM policy that outlines the AWS permissions granted to the load balancer controller (see https://docs.aws.amazon.com/eks/latest/userguide/aws-load-balancer-controller.html) |
+| aws_iam_role     | aws_load_balancer_controller_role | The IAM role attached to the service account provided to the load balancer controller (see https://docs.aws.amazon.com/eks/latest/userguide/aws-load-balancer-controller.html) |
+| aws_iam_role_policy_attachment     | load_balancer_controller_role_policy | Attachment of the load balancer controller policy to role |
+| kubernetes_service_account     | service_account | AWS load balancer controller service account in the cluster with an IRSA on the above role (see https://docs.aws.amazon.com/eks/latest/userguide/aws-load-balancer-controller.html) |
+| helm_release     | aws_load_balancer_controller | Helm release of the load balancer controller |
+| aws_iam_policy     | external_dns_policy | The IAM policy that outlines the AWS permissions granted to the External DNS plugin (see https://github.com/kubernetes-sigs/external-dns/blob/master/docs/tutorials/aws.md) |
+| aws_iam_role     | external_dns_role |  The role attached to the service account provided to exernal DNS |
+| aws_iam_role_policy_attachment     | external_dns_role_policy | Attachment of the external DNS policy to role |
+| kubernetes_service_account     | external_dns_service_account | External DNS service account in the cluster with an IRSA on its role |
+| helm_release     | external_dns | Helm release of external DNS (see https://artifacthub.io/packages/helm/bitnami/external-dns) |
+| kubernetes_namespace     | prometheus_namespace |  |
+| helm_release     | prometheus |  |
+| kubernetes_namespace     | grafana_namespace |  |
+| helm_release     | grafana |  |
+| aws_iam_policy     | fluent_bit_policy |  |
+| kubernetes_namespace     | logging_namespace |  |
+| aws_iam_role     | fluent_bit_role |  |
+| aws_iam_role_policy_attachment     | fluent_bit_role_policy |  |
+| kubernetes_service_account     | fluent_bit_service_account |  |
+| helm_release     | fluent_bit |  |
 
 ### saga-recommender-api-cicd.yaml
 
