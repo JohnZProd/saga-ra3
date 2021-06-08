@@ -57,4 +57,8 @@ This directory also includes a grafana.yaml file which the Helm release for graf
 
 ### saga-recommender-api-cicd.yaml
 
+A Cloudformation template that sets up a Codebuild project, an IAM role for the project, and an ECR repository. Upon push of the recommender API code repository, the codebuild project triggers the build of the application into a docker image, and pushed it into the ECR repository. 
+
 ### saga-recommender-api-pipeline.yaml
+
+A Cloudformation template that sets up the GitOps pipeline for the recommender API by setting up a Codebuild project, an IAM role for the project, a CloudWatch events rule (with associated IAM role) to trigger the project upon push to the ECR repo mentioned in the above template. The project runs a helm upgrade everytime.
