@@ -9,7 +9,7 @@ spec:
     spec:
       restartPolicy: OnFailure
       containers:
-        - image: 053273560072.dkr.ecr.ap-southeast-2.amazonaws.com/saga-new-topics:latest
+        - image: $IMAGE_REPO:$IMAGE_TAG
           name: new-topics
           env:
             - name: TOPIC_FILE_URL
