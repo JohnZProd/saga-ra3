@@ -25,6 +25,10 @@ Resources:
             Value: !Ref ClusterName
           - Name: MANIFEST_URL
             Value: !Ref ManifestUrl
+          - Name: IMAGE_REPO
+            Value: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/saga-new-topics
+          - Name: IMAGE_TAG
+            Value: latest
       Name: New-Topics-Execution-Ra3
       ServiceRole: !Ref IAMRole
       Source:
